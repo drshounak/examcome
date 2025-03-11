@@ -4,8 +4,8 @@ compatibility_date = "2023-05-18"
 
 # Configure environment variables (update these with your real values)
 [vars]
-GOTIFY_URL = "https://your-gotify-server.example.com"
-GOTIFY_TOKEN = "your-gotify-app-token"
+GOTIFY_URL = "http://68.233.115.164:6940"
+GOTIFY_TOKEN = "A9Y55xTVo1QZNUt"
 
 # Configure cron triggers for notifications
 [triggers]
