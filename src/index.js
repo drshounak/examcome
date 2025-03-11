@@ -18,8 +18,9 @@ const MILESTONES = [
 
 // Gotify notification function
 async function sendGotifyNotification(stats) {
-  const GOTIFY_URL = 'YOUR_GOTIFY_SERVER_URL';
-  const GOTIFY_TOKEN = 'YOUR_GOTIFY_APP_TOKEN';
+  // Use the environment variables from wrangler.toml
+  const GOTIFY_URL = GOTIFY_URL || 'http://68.233.115.164:6940';
+  const GOTIFY_TOKEN = GOTIFY_TOKEN || 'A9Y55xTVo1QZNUt';
   
   const message = {
     title: `Study Progress Update - ${stats.days_passed} Days Gone`,
@@ -50,14 +51,17 @@ async function sendGotifyNotification(stats) {
 // Calculate milestone positions for the progress bar
 function calculateMilestonePositions() {
   const totalDuration = (NEET_PG_DATE - STUDY_START) / 1000; // in seconds
+  const now = new Date();
   
   return MILESTONES.map(milestone => {
     const timeUntilMilestone = (milestone.date - STUDY_START) / 1000;
     const position = (timeUntilMilestone / totalDuration) * 100;
+    const status = now > milestone.date ? 'completed' : 'upcoming';
     
     return {
       text: milestone.text,
-      position: position
+      position: position,
+      status: status
     };
   });
 }
@@ -66,20 +70,27 @@ function calculateMilestonePositions() {
 function calculateStats() {
   const now = new Date();
   const daysPassed = Math.floor((now - STUDY_START) / (1000 * 60 * 60 * 24));
-  const daysToInicet = Math.max(0, Math.floor((INICET_DATE - now) / (1000 * 60 * 60 * 24)));
-  const daysToNeet = Math.max(0, Math.floor((NEET_PG_DATE - now) / (1000 * 60 * 60 * 24)));
   
-  // Calculate days to milestones
-  const daysToFirstRevision = Math.max(0, Math.floor((MILESTONES[0].date - now) / (1000 * 60 * 60 * 24)));
-  const daysToSecondRevision = Math.max(0, Math.floor((MILESTONES[1].date - now) / (1000 * 60 * 60 * 24)));
-  const daysToFinalRevision = Math.max(0, Math.floor((MILESTONES[2].date - now) / (1000 * 60 * 60 * 24)));
+  // Check if exams are completed
+  const inicetCompleted = now > INICET_DATE;
+  const neetCompleted = now > NEET_PG_DATE;
+  
+  // Calculate days to exams (don't go negative)
+  const daysToInicet = inicetCompleted ? 0 : Math.max(0, Math.floor((INICET_DATE - now) / (1000 * 60 * 60 * 24)));
+  const daysToNeet = neetCompleted ? 0 : Math.max(0, Math.floor((NEET_PG_DATE - now) / (1000 * 60 * 60 * 24)));
+  
+  // Calculate days to milestones (don't go negative)
+  const milestoneStatus = MILESTONES.map(milestone => now > milestone.date);
+  const daysToFirstRevision = milestoneStatus[0] ? 0 : Math.max(0, Math.floor((MILESTONES[0].date - now) / (1000 * 60 * 60 * 24)));
+  const daysToSecondRevision = milestoneStatus[1] ? 0 : Math.max(0, Math.floor((MILESTONES[1].date - now) / (1000 * 60 * 60 * 24)));
+  const daysToFinalRevision = milestoneStatus[2] ? 0 : Math.max(0, Math.floor((MILESTONES[2].date - now) / (1000 * 60 * 60 * 24)));
   
   // Calculate progress percentages
   const totalDaysInicet = Math.floor((INICET_DATE - STUDY_START) / (1000 * 60 * 60 * 24));
   const totalDaysNeet = Math.floor((NEET_PG_DATE - STUDY_START) / (1000 * 60 * 60 * 24));
   
-  const inicetProgress = Math.min(100, (daysPassed / totalDaysInicet) * 100);
-  const neetProgress = Math.min(100, (daysPassed / totalDaysNeet) * 100);
+  const inicetProgress = inicetCompleted ? 100 : Math.min(100, (daysPassed / totalDaysInicet) * 100);
+  const neetProgress = neetCompleted ? 100 : Math.min(100, (daysPassed / totalDaysNeet) * 100);
   
   return {
     current_time: now.toLocaleString('en-IN', { 
@@ -99,7 +110,12 @@ function calculateStats() {
     days_to_final_revision: daysToFinalRevision,
     inicet_progress: Math.round(inicetProgress * 10) / 10,
     neet_progress: Math.round(neetProgress * 10) / 10,
-    milestones: calculateMilestonePositions()
+    milestones: calculateMilestonePositions(),
+    inicet_completed: inicetCompleted,
+    neet_completed: neetCompleted,
+    milestone_1_completed: milestoneStatus[0],
+    milestone_2_completed: milestoneStatus[1],
+    milestone_3_completed: milestoneStatus[2]
   };
 }
 
@@ -129,6 +145,28 @@ router.get('/notify', async () => {
 
 // Function to render the HTML
 function renderHTML(stats) {
+  // Generate exam status HTML based on completion
+  const inicetStatusHTML = stats.inicet_completed 
+    ? `<div class="completed-badge">COMPLETED!</div>` 
+    : `<div class="days-number inicet">${stats.days_to_inicet}</div><div class="exam-label">Days Until INICET</div>`;
+  
+  const neetStatusHTML = stats.neet_completed 
+    ? `<div class="completed-badge">COMPLETED!</div>` 
+    : `<div class="days-number neet">${stats.days_to_neet}</div><div class="exam-label">Days Until NEET PG</div>`;
+  
+  // Generate milestone status for stat cards
+  const milestone1Status = stats.milestone_1_completed 
+    ? `<div class="status-completed">COMPLETED</div>` 
+    : `<div class="stat-value">${stats.days_to_first_revision}</div>`;
+  
+  const milestone2Status = stats.milestone_2_completed 
+    ? `<div class="status-completed">COMPLETED</div>` 
+    : `<div class="stat-value">${stats.days_to_second_revision}</div>`;
+  
+  const milestone3Status = stats.milestone_3_completed 
+    ? `<div class="status-completed">COMPLETED</div>` 
+    : `<div class="stat-value">${stats.days_to_final_revision}</div>`;
+  
   return `
 <!DOCTYPE html>
 <html>
@@ -147,6 +185,7 @@ function renderHTML(stats) {
             --light: #F7FFF7;
             --warning: #FFE66D;
             --accent: #6B48FF;
+            --success: #2ecc71;
         }
         
         body {
@@ -172,7 +211,6 @@ function renderHTML(stats) {
             font-size: 28px;
             font-weight: 900;
             margin: 20px 0 30px;
-            color: var(--primary);
             text-transform: uppercase;
             letter-spacing: 1px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
@@ -242,6 +280,25 @@ function renderHTML(stats) {
             color: var(--secondary);
         }
         
+        .completed-badge {
+            font-size: 38px;
+            font-weight: 900;
+            color: var(--success);
+            margin: 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: glow 2s infinite alternate;
+        }
+        
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 5px rgba(46, 204, 113, 0.5);
+            }
+            to {
+                text-shadow: 0 0 20px rgba(46, 204, 113, 0.8);
+            }
+        }
+        
         .exam-label {
             font-size: 20px;
             font-weight: 700;
@@ -285,6 +342,21 @@ function renderHTML(stats) {
             font-weight: 800;
             color: var(--accent);
             margin: 10px 0;
+        }
+        
+        .status-completed {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--success);
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        .status-completed:after {
+            content: "✓";
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 22px;
         }
         
         .progress-container {
@@ -338,6 +410,10 @@ function renderHTML(stats) {
             opacity: 0.7;
         }
         
+        .milestone.completed:after {
+            background-color: var(--success);
+        }
+        
         .milestone:after {
             content: '';
             position: absolute;
@@ -362,6 +438,10 @@ function renderHTML(stats) {
             z-index: 4;
         }
         
+        .milestone-label.completed {
+            background-color: var(--success);
+        }
+        
         .milestone-label:after {
             content: '';
             position: absolute;
@@ -373,6 +453,10 @@ function renderHTML(stats) {
             border-left: 5px solid transparent;
             border-right: 5px solid transparent;
             border-top: 5px solid var(--dark);
+        }
+        
+        .milestone-label.completed:after {
+            border-top: 5px solid var(--success);
         }
         
         .days-counter {
@@ -440,17 +524,15 @@ function renderHTML(stats) {
         
         <p class="warning-text">
             YouTube, Twitter, Website, CODE, Engineering almost destroyed you and your career.<br>
-            <span style="font-size: 20px; display: block; margin-top: 10px;">Lost a year already, Don't F*&%king Give it Away Again</span>
+            <span style="font-size: 20px; display: block; margin-top: 10px;">Lost 1 year already, Don't F*&%king Give it Away again</span>
         </p>
         
         <div class="countdown-grid">
             <div class="countdown-box inicet">
-                <div class="days-number inicet">${stats.days_to_inicet}</div>
-                <div class="exam-label">Days Until INICET</div>
+                ${inicetStatusHTML}
             </div>
             <div class="countdown-box neet">
-                <div class="days-number neet">${stats.days_to_neet}</div>
-                <div class="exam-label">Days Until NEET PG</div>
+                ${neetStatusHTML}
             </div>
         </div>
         
@@ -460,11 +542,11 @@ function renderHTML(stats) {
                 <span>INICET: ${stats.inicet_progress}% | NEET PG: ${stats.neet_progress}%</span>
             </div>
             <div class="progress-bar">
-                <div class="progress-fill inicet" style="width: ${stats.inicet_progress}%;"></div>
+                ${!stats.inicet_completed ? `<div class="progress-fill inicet" style="width: ${stats.inicet_progress}%;"></div>` : ''}
                 <div class="progress-fill neet" style="width: ${stats.neet_progress}%;"></div>
                 ${stats.milestones.map(milestone => `
-                    <div class="milestone" style="left: ${milestone.position}%;">
-                        <span class="milestone-label">${milestone.text}</span>
+                    <div class="milestone ${milestone.status === 'completed' ? 'completed' : ''}" style="left: ${milestone.position}%;">
+                        <span class="milestone-label ${milestone.status === 'completed' ? 'completed' : ''}">${milestone.text}</span>
                     </div>
                 `).join('')}
             </div>
@@ -473,15 +555,15 @@ function renderHTML(stats) {
         <div class="stats-grid">
             <div class="stat-card">
                 <h3>Days to 1st Revision</h3>
-                <div class="stat-value">${stats.days_to_first_revision}</div>
+                ${milestone1Status}
             </div>
             <div class="stat-card">
                 <h3>Days to 2nd Revision</h3>
-                <div class="stat-value">${stats.days_to_second_revision}</div>
+                ${milestone2Status}
             </div>
             <div class="stat-card">
                 <h3>Days to Final Revision</h3>
-                <div class="stat-value">${stats.days_to_final_revision}</div>
+                ${milestone3Status}
             </div>
         </div>
         
