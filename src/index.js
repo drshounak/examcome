@@ -439,8 +439,8 @@ function renderHTML(stats) {
         </div>
         
         <p class="warning-text">
-            Remember: YouTube, Twitter, Website, CODE, Engineering almost destroyed you and your career.<br>
-            <span style="font-size: 20px; display: block; margin-top: 10px;">Don't F*&%king Give it Away</span>
+            YouTube, Twitter, Website, CODE, Engineering almost destroyed you and your career.<br>
+            <span style="font-size: 20px; display: block; margin-top: 10px;">Lost a year already, Don't F*&%king Give it Away Again</span>
         </p>
         
         <div class="countdown-grid">
