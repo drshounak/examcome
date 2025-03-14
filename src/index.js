@@ -11,7 +11,7 @@ const NEET_PG_DATE = new Date(2025, 5, 15); // June 15, 2025
 
 // Updated Milestones
 const MILESTONES = [
-  { date: new Date(2025, 2, 19), text: '1st Revision' }, // March 19, 2025
+  { date: new Date(2025, 2, 20), text: '1st Revision' }, // March 19, 2025
   { date: new Date(2025, 4, 14), text: '2nd Revision' }, // May 14, 2025
   { date: new Date(2025, 5, 9), text: 'Final Revision' } // June 9, 2025
 ];
